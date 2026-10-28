@@ -1,5 +1,52 @@
 const API_BASE_URL = "https://urban-sanskar-backend.onrender.com";
 
+const FALLBACK_PRODUCTS = [
+    {
+        _id: "fallback-1",
+        title: "Luxury Linen Co-ord Set",
+        price: 4999,
+        mrpPrice: 6999,
+        category: "coord-sets",
+        images: ["1.JPG"]
+    },
+    {
+        _id: "fallback-2",
+        title: "Premium Handloom Dupatta",
+        price: 2199,
+        mrpPrice: 2999,
+        category: "handloom-dupatta",
+        images: ["dupatta.png"]
+    },
+    {
+        _id: "fallback-3",
+        title: "Signature Linen Dress",
+        price: 3899,
+        mrpPrice: 4999,
+        category: "dress",
+        images: ["5.png"]
+    }
+];
+
+async function fetchProducts(endpoint, fallbackLabel) {
+    try {
+        const res = await fetch(`${API_BASE_URL}${endpoint}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data || !Array.isArray(data.products) || data.products.length === 0) {
+            console.warn(`${fallbackLabel}: API returned no products. Falling back to static catalog.`);
+            return FALLBACK_PRODUCTS;
+        }
+
+        return data.products;
+    } catch (err) {
+        console.warn(`${fallbackLabel}: Using static fallback catalog because the API is unavailable.`, err);
+        return FALLBACK_PRODUCTS;
+    }
+}
+
 // --- EXISTING NAVBAR DRAWER ACTIONS CODE ---
 document.addEventListener('DOMContentLoaded', () => {
     const openMenuBtn = document.getElementById('menu-open-btn');
@@ -33,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerOverlay.addEventListener('click', closeMobileDrawer);
     }
 
-    window.addEventListener('popstate', (nativeEvent) => {
+    window.addEventListener('popstate', () => {
         if (navDrawer && navDrawer.classList.contains('is-open')) {
             navDrawer.classList.remove('is-open');
             if (drawerOverlay) drawerOverlay.classList.remove('is-visible');
@@ -72,26 +119,19 @@ function initializeSlider(trackId, leftBtnId, rightBtnId) {
     }
 }
 
-// 🚀 1. NEW ARRIVALS SLIDER INITIALIZATION
 initializeSlider('new-arrivals-track', 'arrival-slide-left-btn', 'arrival-slide-right-btn');
-
-// 🚀 2. BEST SELLERS SLIDER INITIALIZATION
 initializeSlider('product-slider-track', 'slide-left-btn', 'slide-right-btn');
-
-// 🚀 3. RECOMMENDATIONS SLIDER INITIALIZATION (Baaki pages ke liye)
 initializeSlider('rec-slider-track', 'slide-left-btn', 'slide-right-btn');
 
-
-// ==========================================================================
-// 🔥 DYNAMIC API DATA FETCH ENGINE
-// ==========================================================================
-
-// 1. DYNAMIC DETAIL INJECTOR (For product-detail.html)
 async function loadProductDetails(productId) {
     if (!productId) return;
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/products/${productId}`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = await res.json();
 
         if (!data.success || !data.product) {
@@ -100,26 +140,25 @@ async function loadProductDetails(productId) {
         }
 
         const product = data.product;
-
         const titleEl = document.getElementById('dyn-title');
         if (!titleEl) return;
 
         titleEl.innerText = product.title;
 
-        // ✨ FIX: Main Product detail page par dynamic Sale price check
         const priceEl = document.getElementById('dyn-price');
         if (priceEl) {
             if (product.mrpPrice && product.mrpPrice > product.price) {
                 priceEl.innerHTML = `
-                    <span style="text-decoration: line-through; color: #888; margin-right: 12px; font-weight: 400; font-size: 1.1rem;">₹${product.mrpPrice.toLocaleString('en-IN')}</span>
-                    <span style="color: #111; font-weight: 800;">₹${product.price.toLocaleString('en-IN')}</span>
+                    <span style="text-decoration: line-through; color: #888; margin-right: 12px; font-weight: 400; font-size: 1.1rem;">₹${Number(product.mrpPrice).toLocaleString('en-IN')}</span>
+                    <span style="color: #111; font-weight: 800;">₹${Number(product.price).toLocaleString('en-IN')}</span>
                 `;
             } else {
-                priceEl.innerHTML = `₹${product.price.toLocaleString('en-IN')}`;
+                priceEl.innerHTML = `₹${Number(product.price || 0).toLocaleString('en-IN')}`;
             }
         }
 
-        document.getElementById('dyn-desc').innerText = product.desc;
+        const descEl = document.getElementById('dyn-desc');
+        if (descEl) descEl.innerText = product.desc;
         document.title = `${product.title} | Urban Sanskar`;
 
         if (document.getElementById('dyn-collection')) {
@@ -153,13 +192,11 @@ async function loadProductDetails(productId) {
         });
 
         generateRecommendations(product.category, product._id);
-
     } catch (err) {
         console.error("Product detail load karne me error aayi:", err);
     }
 }
 
-// 2. DYNAMIC RECOMMENDATIONS GENERATOR (Detail page ke neeche ke liye)
 async function generateRecommendations(currentCategory, currentProductId) {
     const recTrack = document.getElementById('rec-slider-track');
     if (!recTrack) return;
@@ -168,12 +205,14 @@ async function generateRecommendations(currentCategory, currentProductId) {
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/products`);
-        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
 
+        const data = await res.json();
         if (!data.success || !data.products) return;
 
         let matchCount = 0;
-
         data.products.forEach(product => {
             if (product.category === currentCategory && product._id !== currentProductId) {
                 matchCount++;
@@ -193,65 +232,50 @@ async function generateRecommendations(currentCategory, currentProductId) {
     }
 }
 
-// 3. HOMEPAGE BEST SELLERS LOADER (For index.html slider)
 async function loadHomepageBestSellers() {
     const homeSliderTrack = document.getElementById('product-slider-track');
     if (!homeSliderTrack) return;
 
     homeSliderTrack.innerHTML = "";
 
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/products/bestsellers`);
-        const data = await res.json();
-
-        if (data.success && data.products) {
-            data.products.forEach(product => {
-                homeSliderTrack.innerHTML += createCardHTML(product);
-            });
-        }
-    } catch (err) {
-        console.error("Best sellers load karne me dikkat aayi:", err);
-    }
+    const products = await fetchProducts('/api/products/bestsellers', 'Best sellers API');
+    products.forEach(product => {
+        homeSliderTrack.innerHTML += createCardHTML(product);
+    });
 }
 
-// 🌟 3b. NEW ADDITION: HOMEPAGE NEW ARRIVALS LOADER (For index.html slider)
 async function loadHomepageNewArrivals() {
     const newArrivalsTrack = document.getElementById('new-arrivals-track');
     if (!newArrivalsTrack) return;
 
     newArrivalsTrack.innerHTML = "";
 
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/products/newarrivals`);
-        const data = await res.json();
-
-        if (data.success && data.products) {
-            data.products.forEach(product => {
-                newArrivalsTrack.innerHTML += createCardHTML(product);
-            });
-        }
-    } catch (err) {
-        console.error("New arrivals load karne me dikkat aayi:", err);
-    }
+    const products = await fetchProducts('/api/products/newarrivals', 'New arrivals API');
+    products.forEach(product => {
+        newArrivalsTrack.innerHTML += createCardHTML(product);
+    });
 }
 
-// Helper Function: Card HTML Generator (MongoDB `_id` compatible)
 function createCardHTML(product) {
-    // 🔥 FIX: Check properties if product is actually on SALE
-    const isOnSale = product.mrpPrice && product.mrpPrice > product.price;
+    const safeProduct = product || {};
+    const price = Number(safeProduct.price || 0);
+    const mrp = Number(safeProduct.mrpPrice || 0);
+    const isOnSale = mrp > 0 && mrp > price;
+    const imageUrl = Array.isArray(safeProduct.images) && safeProduct.images[0]
+        ? safeProduct.images[0]
+        : "1.JPG";
 
-    // Dynamic price string compilation
     const priceDisplay = isOnSale
-        ? `<span style="text-decoration: line-through; color: #999; margin-right: 8px; font-size: 0.85rem; font-weight: normal;">₹${product.mrpPrice.toLocaleString('en-IN')}</span><span style="font-weight: 700; color: #111;">₹${product.price.toLocaleString('en-IN')}</span>`
-        : `₹${product.price.toLocaleString('en-IN')}`;
+        ? `<span style="text-decoration: line-through; color: #999; margin-right: 8px; font-size: 0.85rem; font-weight: normal;">₹${mrp.toLocaleString('en-IN')}</span><span style="color: #111; font-weight: 700;">₹${price.toLocaleString('en-IN')}</span>`
+        : `₹${price.toLocaleString('en-IN')}`;
 
     return `
-        <div onclick="redirectFromRecs('${product._id}')" class="product-card" style="cursor:pointer;">
+        <div onclick="redirectFromRecs('${safeProduct._id || 'fallback'}')" class="product-card" style="cursor:pointer;">
             <div class="prod-image-holder">
-                <img src="${product.images[0]}" class="prod-main-img" alt="${product.title}">
+                <img src="${imageUrl}" class="prod-main-img" alt="${safeProduct.title || 'Urban Sanskar product'}">
             </div>
             <div class="prod-details-meta">
-                <h4 class="prod-display-name">${product.title}</h4>
+                <h4 class="prod-display-name">${safeProduct.title || 'Luxury Collection'}</h4>
                 <span class="prod-display-price">${priceDisplay}</span>
             </div>
         </div>
@@ -262,9 +286,6 @@ function redirectFromRecs(id) {
     window.location.href = `product-detail.html?id=${id}`;
 }
 
-// ==========================================================================
-// 4. CORE ENGINE INITIALIZATION ON DOM LOAD
-// ==========================================================================
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     const productId = urlParams.get('id');
@@ -272,15 +293,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (productId) {
         loadProductDetails(productId);
     } else {
-        // 🔥 Dono loaders safely side-by-side call ho rhe hain homepage par
         loadHomepageNewArrivals();
         loadHomepageBestSellers();
     }
 
-    // ✂️ NOTE: Live Thumbnail Switching wala static code yahan se hata diya hai, 
-    // kyunki wo ab loadProductDetails ke andar dynamically run hota hai.
-
-    // Size Picker Chips Logic (Kyunki ye HTML me pehle se static maujood hain)
     const sizeChips = document.querySelectorAll('.size-chip-btn');
     if (sizeChips.length > 0) {
         sizeChips.forEach(chip => {
@@ -292,7 +308,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// --- GLOBAL CART BADGE LOGIC ---
 document.addEventListener("DOMContentLoaded", function () {
     function updateGlobalCartBadge() {
         let cart = JSON.parse(localStorage.getItem("urbanCart")) || [];
