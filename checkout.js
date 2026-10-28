@@ -188,6 +188,24 @@ document.addEventListener("DOMContentLoaded", async function () {
                         const verifyData = await verifyResponse.json();
 
                         if (verifyData.success) {
+                            if (typeof window.UrbanSanskarMeta?.track === "function") {
+                                void window.UrbanSanskarMeta.track("Purchase", {
+                                    eventId: razorpayResponse.razorpay_order_id,
+                                    email: orderPayload.customerInfo.email,
+                                    phone: orderPayload.customerInfo.phone,
+                                    customData: {
+                                        content_ids: orderPayload.orderItems.map(item => String(item.product)),
+                                        content_type: "product",
+                                        value: Number(data.totalAmount),
+                                        currency: "INR",
+                                        num_items: orderPayload.orderItems.reduce(
+                                            (total, item) => total + Number(item.quantity),
+                                            0
+                                        )
+                                    }
+                                });
+                            }
+
                             localStorage.removeItem("urbanCart");
                             window.location.href = "success.html";
                         } else {
