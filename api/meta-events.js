@@ -1,7 +1,7 @@
 const { ParamBuilder } = require("capi-param-builder-nodejs");
 
 const DATASET_ID = "772800845173915";
-const GRAPH_API_VERSION = "v19.0";
+const GRAPH_API_VERSION = "v26.0";
 const MAX_BODY_BYTES = 16 * 1024;
 const ALLOWED_EVENTS = new Set(["Purchase", "ViewContent", "AddToCart", "AddPaymentInfo"]);
 const DEFAULT_ORIGINS = ["https://urbansanskar.co.in", "https://www.urbansanskar.co.in"];
