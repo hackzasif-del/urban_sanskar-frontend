@@ -1,9 +1,9 @@
 const { ParamBuilder } = require("capi-param-builder-nodejs");
 
-const DATASET_ID = process.env.META_DATASET_ID || "772800845173915";
-const GRAPH_API_VERSION = "v26.0";
+const DATASET_ID = "772800845173915";
+const GRAPH_API_VERSION = "v19.0";
 const MAX_BODY_BYTES = 16 * 1024;
-const ALLOWED_EVENTS = new Set(["Purchase", "ViewContent", "AddToCart"]);
+const ALLOWED_EVENTS = new Set(["Purchase", "ViewContent", "AddToCart", "AddPaymentInfo"]);
 const DEFAULT_ORIGINS = ["https://urbansanskar.co.in", "https://www.urbansanskar.co.in"];
 
 function getAllowedOrigins() {
@@ -188,9 +188,9 @@ module.exports = async function handler(req, res) {
 
     const customDataResult = buildCustomData(body.custom_data || {});
     if (customDataResult.error) return sendJson(res, 400, { error: customDataResult.error });
-    if (body.event_name === "Purchase" &&
+    if (["Purchase", "AddPaymentInfo"].includes(body.event_name) &&
         (customDataResult.customData.value === undefined || customDataResult.customData.currency !== "INR")) {
-        return sendJson(res, 400, { error: "Purchase requires value and INR currency." });
+        return sendJson(res, 400, { error: `${body.event_name} requires value and INR currency.` });
     }
 
     if (body.user_data !== undefined &&
@@ -207,9 +207,9 @@ module.exports = async function handler(req, res) {
         return sendJson(res, 400, { error: "user_data.phone is invalid." });
     }
 
-    const accessToken = process.env.META_ACCESS_TOKEN;
+    const accessToken = process.env.FACEBOOK_ACCESS_TOKEN;
     if (!accessToken) {
-        console.error("META_ACCESS_TOKEN is not configured.");
+        console.error("FACEBOOK_ACCESS_TOKEN is not configured.");
         return sendJson(res, 500, { error: "Meta CAPI is not configured." });
     }
 

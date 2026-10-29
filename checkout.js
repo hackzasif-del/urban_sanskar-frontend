@@ -121,6 +121,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         const totalAmount = subtotal + shipping;
 
         const orderPayload = {
+            event_id: window.crypto?.randomUUID
+                ? window.crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             customerInfo: {
                 name: document.getElementById("cust-name").value.trim(),
                 phone: document.getElementById("cust-phone").value.trim(),
@@ -163,6 +166,37 @@ document.addEventListener("DOMContentLoaded", async function () {
                 alert("Checkout Failed: " + data.message);
                 resetPayButton();
                 return;
+            }
+
+            const addPaymentInfoOptions = {
+                eventId: orderPayload.event_id,
+                email: orderPayload.customerInfo.email,
+                phone: orderPayload.customerInfo.phone,
+                customData: {
+                    content_ids: orderPayload.orderItems.map(item => String(item.product)),
+                    content_type: "product",
+                    value: Number(data.totalAmount),
+                    currency: "INR",
+                    num_items: orderPayload.orderItems.reduce(
+                        (total, item) => total + Number(item.quantity),
+                        0
+                    )
+                }
+            };
+            if (window.UrbanSanskarMeta?.hasMarketingConsent?.() &&
+                typeof window.fbq === "function") {
+                window.fbq(
+                    "track",
+                    "AddPaymentInfo",
+                    {
+                        value: addPaymentInfoOptions.customData.value,
+                        currency: addPaymentInfoOptions.customData.currency
+                    },
+                    { eventID: addPaymentInfoOptions.eventId }
+                );
+            }
+            if (typeof window.UrbanSanskarMeta?.track === "function") {
+                void window.UrbanSanskarMeta.track("AddPaymentInfo", addPaymentInfoOptions);
             }
 
             const options = {
