@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/meta-capi.js"></script>
     <title>Product details | Urban Sanskar</title>
     <!-- Standard CSS Stylesheet Linking -->
     <link rel="stylesheet" href="style.css">
@@ -856,6 +857,19 @@ src="https://www.facebook.com/tr?id=772800845173915&ev=PageView&noscript=1"
                 }
 
                 localStorage.setItem("urbanCart", JSON.stringify(cart));
+
+                if (typeof window.UrbanSanskarMeta?.track === "function") {
+                    void window.UrbanSanskarMeta.track("AddToCart", {
+                        customData: {
+                            content_ids: [String(productId)],
+                            content_type: "product",
+                            content_name: productTitle,
+                            value: productPrice,
+                            currency: "INR",
+                            num_items: 1
+                        }
+                    });
+                }
             }
 
             if (addToBagBtn) {

@@ -121,6 +121,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         const totalAmount = subtotal + shipping;
 
         const orderPayload = {
+            event_id: window.crypto?.randomUUID
+                ? window.crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             customerInfo: {
                 name: document.getElementById("cust-name").value.trim(),
                 phone: document.getElementById("cust-phone").value.trim(),
@@ -165,6 +168,37 @@ document.addEventListener("DOMContentLoaded", async function () {
                 return;
             }
 
+            const addPaymentInfoOptions = {
+                eventId: orderPayload.event_id,
+                email: orderPayload.customerInfo.email,
+                phone: orderPayload.customerInfo.phone,
+                customData: {
+                    content_ids: orderPayload.orderItems.map(item => String(item.product)),
+                    content_type: "product",
+                    value: Number(data.totalAmount),
+                    currency: "INR",
+                    num_items: orderPayload.orderItems.reduce(
+                        (total, item) => total + Number(item.quantity),
+                        0
+                    )
+                }
+            };
+            if (window.UrbanSanskarMeta?.hasMarketingConsent?.() &&
+                typeof window.fbq === "function") {
+                window.fbq(
+                    "track",
+                    "AddPaymentInfo",
+                    {
+                        value: addPaymentInfoOptions.customData.value,
+                        currency: addPaymentInfoOptions.customData.currency
+                    },
+                    { eventID: addPaymentInfoOptions.eventId }
+                );
+            }
+            if (typeof window.UrbanSanskarMeta?.track === "function") {
+                void window.UrbanSanskarMeta.track("AddPaymentInfo", addPaymentInfoOptions);
+            }
+
             const options = {
                 "key": data.keyId,
                 "amount": data.totalAmount * 100, // Amount in paisa
@@ -188,6 +222,24 @@ document.addEventListener("DOMContentLoaded", async function () {
                         const verifyData = await verifyResponse.json();
 
                         if (verifyData.success) {
+                            if (typeof window.UrbanSanskarMeta?.track === "function") {
+                                void window.UrbanSanskarMeta.track("Purchase", {
+                                    eventId: razorpayResponse.razorpay_order_id,
+                                    email: orderPayload.customerInfo.email,
+                                    phone: orderPayload.customerInfo.phone,
+                                    customData: {
+                                        content_ids: orderPayload.orderItems.map(item => String(item.product)),
+                                        content_type: "product",
+                                        value: Number(data.totalAmount),
+                                        currency: "INR",
+                                        num_items: orderPayload.orderItems.reduce(
+                                            (total, item) => total + Number(item.quantity),
+                                            0
+                                        )
+                                    }
+                                });
+                            }
+
                             localStorage.removeItem("urbanCart");
                             window.location.href = "success.html";
                         } else {

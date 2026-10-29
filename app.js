@@ -191,6 +191,25 @@ async function loadProductDetails(productId) {
             }
         });
 
+        const trackProductView = () => {
+            if (typeof window.UrbanSanskarMeta?.track !== "function") return;
+
+            void window.UrbanSanskarMeta.track("ViewContent", {
+                customData: {
+                    content_ids: [String(product._id)],
+                    content_type: "product",
+                    content_name: product.title,
+                    value: Number(product.price),
+                    currency: "INR"
+                }
+            });
+        };
+
+        trackProductView();
+        if (!window.UrbanSanskarMeta?.hasMarketingConsent()) {
+            window.addEventListener("metaMarketingConsentGranted", trackProductView, { once: true });
+        }
+
         generateRecommendations(product.category, product._id);
     } catch (err) {
         console.error("Product detail load karne me error aayi:", err);
